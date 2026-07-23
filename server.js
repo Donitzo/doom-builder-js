@@ -6,7 +6,7 @@ import os from 'os';
 import path from 'path';
 import { Server } from 'socket.io';
 
-const VERSION = '0';
+const VERSION = '0.9';
 
 // Seconds until server closes by itself with no users or activity. 0 to disable.
 const IDLE_CLOSE_SECONDS = 300 * 0;
@@ -21,7 +21,7 @@ const MAX_MESSAGE_LENGTH = 256;
 
 const USER_RECONNECT_GRACE_SECONDS = 30;
 
-const DEFALT_ALLOW_EDITING = true;
+const DEFAULT_ALLOW_EDITING = true;
 
 const STATIC_PATH = path.resolve('public');
 
@@ -213,7 +213,7 @@ io.on('connection', socket => {
                 username,
                 color,
                 isAdmin: false,
-                allowEditing: DEFALT_ALLOW_EDITING,
+                allowEditing: DEFAULT_ALLOW_EDITING,
                 toString: () => `${user.isAdmin ? 'Admin' : 'User'}<${user.index}:${user.username}:${(user.socket?.id ?? '?').slice(0, 4)}>`,
             };
 
