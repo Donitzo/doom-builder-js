@@ -40,9 +40,6 @@ export default class App {
     /** @type {?Editor3D} 3D map editor. */
     #editor3d = null;
 
-    /** @type {?FrameRequestCallback} Bound animation-frame update callback. */
-    #boundUpdate = null;
-
     /** @type {?number} Timestamp of the previous animation frame, in milliseconds. */
     #lastTime = null;
 
@@ -72,8 +69,7 @@ export default class App {
         this.#editor3d.vectorEditor = this.#vectorEditor;
         new Interface(resourceManager, map, this.#editor3d, this.#vectorEditor, client);
 
-        this.#boundUpdate = this.update.bind(this);
-        requestAnimationFrame(this.#boundUpdate);
+        this.#editor3d.renderer.setAnimationLoop(this.#update.bind(this));
     }
 
     /**
@@ -81,15 +77,15 @@ export default class App {
      *
      * @param {DOMHighResTimeStamp} time - Current animation-frame timestamp, in milliseconds.
      */
-    update(time) {
+    #update(time) {
         const dt = Math.min(Math.max((time - (this.#lastTime ?? time)) / 1000, 1e-6), 1);
         this.#lastTime = time;
 
-        this.#vectorEditor.update(dt);
+        if (!this.#editor3d.renderer.xr.isPresenting) {
+            this.#vectorEditor.update(dt);
+        }
         this.#editor3d.update(dt);
 
         Input.resetState();
-
-        requestAnimationFrame(this.#boundUpdate);
     }
 }

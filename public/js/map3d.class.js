@@ -28,6 +28,8 @@ export default class Map3D {
     static #tmpSet1 = new Set();
     static #tmpSet2 = new Set();
 
+    static #tmpV30 = new THREE.Vector3();
+
     /** @type {Map<string, THREE.Texture>} Texture lookup cache. */
     #textureCache = new Map();
     /** @type {?Array<THREE.Texture>} Placeholder textures for missing assets. */
@@ -87,14 +89,6 @@ export default class Map3D {
         this.#doomMap = doomMap;
         this.#client = client;
         this.#container = container;
-
-        const metersPerUnit = Map3D.METERS_PER_UNIT;
-
-        this.#container.scale.set(
-            metersPerUnit,
-            metersPerUnit,
-            metersPerUnit
-        );
 
         if (this.#missingTexture === null) {
             this.#missingTexture = [

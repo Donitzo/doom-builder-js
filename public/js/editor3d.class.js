@@ -2,7 +2,7 @@ import Input from './input.class.js';
 import Map3D from './map3d.class.js';
 
 import * as THREE from './lib/three.js/three.module.js';
-import { XRControllerModelFactory } from './lib/three.js/XRControllerModelFactory.js';
+import { GLTFLoader } from './lib/three.js/GLTFLoader.js';
 
 /**
  * First-person 3D editor for Doom maps.
@@ -23,11 +23,13 @@ export default class Editor3D {
     /** @type {number} Turn speed in VR in radians per second. */
     static #VR_TURN_SPEED = 3;
     /** @type {number} Level move speed in map units per second. */
-    static #VR_OVERHEAD_MOVE_SPEED = 500;
+    static #VR_OVERHEAD_MOVE_SPEED = 150;
     /** @type {number} Level turn speed in radians per second. */
-    static #VR_OVERHEAD_TURN_SPEED = 2;
+    static #VR_OVERHEAD_TURN_SPEED = 0.5;
+    /** @type {number} Level scale speed. */
+    static #VR_OVERHEAD_SCALE_SPEED = 0.05;
     /** @type {number} Stick deadzone in VR. */
-    static #VR_STICK_DEAD_ZONE = 0.15;
+    static #VR_STICK_DEAD_ZONE = 0.2;
     /** @type {number} Texture-scrolling distance applied per cursor pixel during drag. */
     static #TEXTURE_SCROLL_SPEED = 0.25;
 
@@ -64,8 +66,12 @@ export default class Editor3D {
         this.#vectorEditor = value;
     }
 
-    /** @type {?THREE.WebGLRenderer} THREE.js renderer. */
+    /** @type {?THREE.WebGLRenderer} */
     #renderer = null;
+    /** @type {?THREE.WebGLRenderer} THREE.js renderer. */
+    get renderer() {
+        return this.#renderer;
+    }
 
     /** @type {?THREE.WebGLRenderer} THREE.js scene. */
     #scene = null;
@@ -113,6 +119,12 @@ export default class Editor3D {
     #vrControllers = null;
     /** @type {boolean} VR in overhead mode. */
     #vrOverheadMode = false;
+    /** @type {THREE.Vector3} Level position in overhead mode. */
+    #vrLevelPosition = new THREE.Vector3();
+    /** @type {THREE.Euler} Level rotation in overhead mode. */
+    #vrLevelRotation = new THREE.Euler();
+    /** @type {THREE.Vector3} Level scale in overhead mode. */
+    #vrLevelScale = new THREE.Vector3(0.002, 0.002, 0.002);
 
     /**
      * @param {HTMLCanvasElement} canvas - Canvas element.
@@ -175,10 +187,19 @@ export default class Editor3D {
         this.#renderer.outputEncoding = THREE.sRGBEncoding;
 
         this.#scene = new THREE.Scene();
-        this.#scene.fog = new THREE.FogExp2(0x0a0a0a, 0.05);
+
+        const metersPerUnit = Map3D.METERS_PER_UNIT;
 
         this.#mapContainer = new THREE.Group();
+        this.#mapContainer.scale.set(metersPerUnit, metersPerUnit, metersPerUnit);
         this.#scene.add(this.#mapContainer);
+
+        const ambientLight = new THREE.AmbientLight(0xaaaaaa);
+        this.#scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff);
+        directionalLight.position.set(0, 1, 0);
+        this.#scene.add(directionalLight);
 
         this.#camera = new THREE.PerspectiveCamera(90, 1, 0.05, 500);
         this.#cameraRig = new THREE.Group();
@@ -212,6 +233,9 @@ export default class Editor3D {
             await this.#renderer.xr.setSession(session);
             currentSession = session;
 
+            this.#flying = false;
+            this.#grounded = true;
+
             session.addEventListener('visibilitychange', () => {
                 if (session.visibilityState === 'hidden') {
                     session.end();
@@ -224,8 +248,15 @@ export default class Editor3D {
                 controller.userData.grip.visible = false;
             });
 
+            const metersPerUnit = Map3D.METERS_PER_UNIT;
+
             this.#mapContainer.position.set(0, 0, 0);
             this.#mapContainer.rotation.set(0, 0, 0);
+            this.#mapContainer.scale.set(metersPerUnit, metersPerUnit, metersPerUnit);
+
+            this.#camera.rotation.set(0, 0, 0);
+
+            this.#vrOverheadMode = false;
 
             currentSession.removeEventListener('end', handleSessionEnded);
             currentSession = null;
@@ -238,7 +269,6 @@ export default class Editor3D {
                 }).then(handleSessionStarted);
             } else {
                 currentSession.end();
-                currentSession = null;
             }
         };
 
@@ -261,13 +291,12 @@ export default class Editor3D {
 
         checkSupport();
 
-        const controllerModelFactory = new XRControllerModelFactory();
-
         this.#vrControllers = [0, 1].map(i => {
             const controller = this.#renderer.xr.getController(i);
 
             controller.userData.connected = false;
             controller.userData.gamepad = null;
+            controller.userData.gripHeld = false;
             controller.userData.selectHeld = false;
             controller.userData.selectHeldLast = false;
             controller.userData.inputSource = null;
@@ -290,16 +319,31 @@ export default class Editor3D {
                 controller.userData.selectHeld = false;
             });
 
-            const controllerModelFactory = new XRControllerModelFactory();
+            controller.addEventListener('squeezestart', () => {
+                controller.userData.gripHeld = true;
+            });
+
+            controller.addEventListener('squeezeend', () => {
+                controller.userData.gripHeld = false;
+            });
+
             controller.userData.grip = this.#renderer.xr.getControllerGrip(i);
-            const model = controllerModelFactory.createControllerModel(controller.userData.grip);
-            controller.userData.grip.add(model);
             controller.userData.grip.visible = false;
 
             this.#cameraRig.add(controller);
             this.#cameraRig.add(controller.userData.grip);
 
             return controller;
+        });
+
+        const gltfLoader = new GLTFLoader();
+
+        gltfLoader.load('models/hand.glb', gltf => {
+            this.#vrControllers.forEach(controller => {
+                const hand = gltf.scene.clone();
+                hand.rotation.y = Math.PI;
+                controller.userData.grip.add(hand);
+            });
         });
     }
 
@@ -459,6 +503,7 @@ export default class Editor3D {
     #updateFirstPersonControls(elapsedSeconds) {
         // Skip if any input element has focus
         const inVr = this.#renderer.xr.isPresenting;
+
         if (!inVr && document.activeElement !== document.body) {
             return;
         }
@@ -473,12 +518,11 @@ export default class Editor3D {
         const verticalSpeed = Editor3D.#VERTICAL_SPEED;
         const vrTurnSpeed = Editor3D.#VR_TURN_SPEED;
 
-        const camera = inVr ? this.#renderer.xr.getCamera(this.#camera) : this.#camera;
+        const camera = this.#camera;
 
         let leftController;
         let rightController;
         let selectReleased;
-        let rightSelectReleased;
         let leftStickX;
         let leftStickY;
         let rightStickX;
@@ -494,6 +538,9 @@ export default class Editor3D {
                 ? this.#vrControllers[1]
                 : this.#vrControllers[0];
 
+            leftController.userData.grip.children[0].scale.x = -1;
+            rightController.userData.grip.children[0].scale.x = 1;
+
             selectReleased = !leftController.userData.selectHeld && leftController.userData.selectHeldLast;
 
             leftStickX = leftController.userData.gamepad?.axes[2] ?? 0;
@@ -505,9 +552,7 @@ export default class Editor3D {
             rightStickY = rightController.userData.gamepad?.axes[3] ?? 0;
             rightStickY = Math.abs(rightStickY) < vrDeadzone ? 0 : rightStickY;
 
-            if (rightStickY > 0) {
-                this.#flying = true;
-            }
+            this.#flying = rightStickY !== 0;
 
             this.#vrControllers.forEach(controller => {
                 controller.userData.selectHeldLast = controller.userData.selectHeld;
@@ -542,24 +587,49 @@ export default class Editor3D {
         const worldPosition = camera.getWorldPosition(Editor3D.#tmpV30);
         const worldDirection = camera.getWorldDirection(Editor3D.#tmpV31).setY(1e-6).normalize();
         const yaw = -Math.atan2(worldDirection.z, worldDirection.x) - Math.PI * 0.5;
+        const yawSide = yaw - Math.PI * 0.5;
 
         // Get the current sector and vertical boundaries
         const sector = this.#map.getSector(worldPosition.x / metersPerUnit, -worldPosition.z / metersPerUnit);
         const minSectorY = sector?.properties.getValue('floor_height') ?? -Infinity;
         const maxSectorY = sector?.properties.getValue('ceiling_height') ?? Infinity;
-        const minY = (minSectorY + (inVr ? 0 : eyeHeight)) * metersPerUnit * verticalScale;
-        const maxY = (maxSectorY - (inVr ? eyeHeight : 0) - minHeadroom) * metersPerUnit * verticalScale;
+
+        const desiredEyeHeight = eyeHeight * metersPerUnit * verticalScale;
+        const trackedEyeHeight = inVr ? camera.position.y : 0;
+        const minY = minSectorY * metersPerUnit * verticalScale + desiredEyeHeight - trackedEyeHeight;
+        const maxY = (maxSectorY - minHeadroom) * metersPerUnit * verticalScale - trackedEyeHeight;
 
         if (inVr && this.#vrOverheadMode) {
-            const overheadMoveSpeed = Editor3D.#VR_OVERHEAD_MOVE_SPEED;
-            const overheadTurnSpeed = Editor3D.#VR_OVERHEAD_TURN_SPEED;
+            const moveSpeed = Editor3D.#VR_OVERHEAD_MOVE_SPEED;
+            const turnSpeed = Editor3D.#VR_OVERHEAD_TURN_SPEED;
+            const scaleSpeed = Editor3D.#VR_OVERHEAD_SCALE_SPEED;
+            const metersPerUnit = Map3D.METERS_PER_UNIT;
 
             // Move level
-            this.#mapContainer.position.x += leftStickX * elapsedSeconds * overheadMoveSpeed * metersPerUnit;
-            this.#mapContainer.position.z += leftStickY * elapsedSeconds * overheadMoveSpeed * metersPerUnit;
-            this.#mapContainer.position.y -= rightStickY * elapsedSeconds * overheadMoveSpeed *
-                metersPerUnit * verticalScale;
-            this.#mapContainer.rotation.y -= rightStickX * elapsedSeconds * overheadTurnSpeed;
+            this.#mapContainer.position.x += (
+                Math.sin(yaw) * leftStickY +
+                Math.sin(yawSide) * leftStickX
+            ) * elapsedSeconds * moveSpeed * metersPerUnit;
+            this.#mapContainer.position.z += (
+                Math.cos(yaw) * leftStickY +
+                Math.cos(yawSide) * leftStickX
+            ) * elapsedSeconds * moveSpeed * metersPerUnit;
+            if (leftController.userData.gripHeld || rightController.userData.gripHeld) {
+                const scale = THREE.MathUtils.clamp(
+                    this.#mapContainer.scale.x + scaleSpeed * metersPerUnit * elapsedSeconds * rightStickY,
+                    metersPerUnit * 0.025,
+                    metersPerUnit * 0.5
+                );
+                this.#mapContainer.scale.set(scale, scale, scale);
+            } else {
+                this.#mapContainer.position.y -= rightStickY * elapsedSeconds * moveSpeed * metersPerUnit *
+                    verticalScale;
+                this.#mapContainer.rotation.y -= rightStickX * elapsedSeconds * turnSpeed;
+            }
+
+            this.#vrLevelPosition.copy(this.#mapContainer.position);
+            this.#vrLevelRotation.copy(this.#mapContainer.rotation);
+            this.#vrLevelScale.copy(this.#mapContainer.scale);
 
             // Land player at hand position
             if (selectReleased) {
@@ -567,17 +637,14 @@ export default class Editor3D {
                 leftController.userData.grip.getWorldPosition(handMapPosition);
                 this.#mapContainer.worldToLocal(handMapPosition);
 
-                const sector = this.#map.getSector(
-                    handMapPosition.x / metersPerUnit,
-                    -handMapPosition.z / metersPerUnit
-                );
+                const sector = this.#map.getSector(handMapPosition.x, -handMapPosition.z);
 
                 this.#mapContainer.position.set(0, 0, 0);
                 this.#mapContainer.rotation.set(0, 0, 0);
-                this.#mapContainer.scale.set(1, 1, 1);
+                this.#mapContainer.scale.set(metersPerUnit, metersPerUnit, metersPerUnit);
 
-                this.#cameraRig.position.x = handMapPosition.x;
-                this.#cameraRig.position.z = handMapPosition.z;
+                this.#cameraRig.position.x = handMapPosition.x * metersPerUnit;
+                this.#cameraRig.position.z = handMapPosition.z * metersPerUnit;
 
                 if (sector !== null) {
                     this.#cameraRig.position.y =
@@ -586,10 +653,10 @@ export default class Editor3D {
                         verticalScale;
 
                     this.#cameraTargetY = this.#cameraRig.position.y;
-                    this.#flying = false;
-                    this.#grounded = true;
                 }
 
+                this.#flying = false;
+                this.#grounded = true;
                 this.#vrOverheadMode = false;
             }
         } else {
@@ -620,12 +687,14 @@ export default class Editor3D {
             if (forwardMovement !== 0 || leftMovement !== 0) {
                 const speed = moveSpeed * elapsedSeconds * metersPerUnit;
 
-                const yawSide = yaw - Math.PI * 0.5;
-
-                this.#cameraRig.position.x += (Math.sin(yaw) * forwardMovement +
-                    Math.sin(yawSide) * leftMovement) * speed;
-                this.#cameraRig.position.z += (Math.cos(yaw) * forwardMovement +
-                    Math.cos(yawSide) * leftMovement) * speed;
+                this.#cameraRig.position.x += (
+                    Math.sin(yaw) * forwardMovement +
+                    Math.sin(yawSide) * leftMovement
+                ) * speed;
+                this.#cameraRig.position.z += (
+                    Math.cos(yaw) * forwardMovement +
+                    Math.cos(yawSide) * leftMovement
+                ) * speed;
             }
 
             // Update player position in the vector editor
@@ -641,6 +710,12 @@ export default class Editor3D {
                 // Enter overhead mode
                 if (selectReleased) {
                     this.#vrOverheadMode = true;
+
+                    this.#cameraRig.position.set(0, 0, 0);
+
+                    this.#mapContainer.position.copy(this.#vrLevelPosition);
+                    this.#mapContainer.rotation.copy(this.#vrLevelRotation);
+                    this.#mapContainer.scale.copy(this.#vrLevelScale);
                 }
 
                 return;
@@ -869,7 +944,8 @@ export default class Editor3D {
 
         this.#updateFirstPersonControls(elapsedSeconds);
 
-        this.#map3d.update(this.#cameraRig, this.#renderer.xr.isPresenting ? 1000000 : 200);
+        const cullingDistance = this.#renderer.xr.isPresenting && this.#vrOverheadMode ? 3000 : 200;
+        this.#map3d.update(this.#cameraRig, cullingDistance);
 
         this.#renderer.render(this.#scene, this.#camera);
     }
