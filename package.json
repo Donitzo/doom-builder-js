@@ -1,0 +1,14 @@
+{
+    "name": "Doom Builder JS",
+    "version": "0.9",
+    "type": "module",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "doom_launcher": "node doom_launcher.js"
+    },
+    "dependencies": {
+        "express": "^5.1.0",
+        "socket.io": "^4.8.1"
+    }
+}

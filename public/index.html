@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" >
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Doom Builder JS</title>
+
+    <link href="images/favicon.ico" rel="shortcut icon" type="image/ico">
+
+    <link rel="stylesheet" href="./css/index.css">
+
+    <script src="./js/lib/jszip.js"></script>
+    <script src="./js/lib/simplescrubber.js"></script>
+    <script type="module" src="./js/app.class.js"></script>
+</head>
+<body>
+    <div class="busy-overlay" hidden role="status" aria-live="polite">
+        <div>Loading resources...</div>
+    </div>
+
+    <div class="app">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+
+            <!-- About -->
+            <div class="sidebar__about">
+                <a href="https://github.com/Donitzo/doom-builder-js" target="_blank" rel="noopener noreferrer" aria-label="Doom Builder JS on GitHub"></a>
+                <div class="sidebar__title">Doom Builder JS</div>
+                <div class="sidebar__version">0.9 alpha</div>
+            </div>
+
+            <!-- Tab buttons -->
+            <div class="sidebar__tab-buttons">
+                <button data-panel=".panel-wad" class="tab-button__wad selected" aria-label="WAD and map loading" title="WAD and map loading"></button>
+                <button data-panel=".panel-users" class="tab-button__users" aria-label="Multiplayer users" title="Multiplayer users"></button>
+                <button data-panel=".panel-inspector" class="tab-button__inspector" aria-label="Object inspector" title="Object inspector"></button>
+                <button data-panel=".panel-textures" class="tab-button__textures" aria-label="Texture browser" title="Texture browser"></button>
+                <button data-panel=".panel-flats" class="tab-button__flats" aria-label="Flat browser" title="Flat browser"></button>
+                <button data-panel=".panel-things" class="tab-button__things" aria-label="Thing browser" title="Thing browser"></button>
+                <button data-panel=".panel-sounds" class="tab-button__sounds" aria-label="Sound browser" title="Sound browser"></button>
+            </div>
+
+            <!-- Switchable panels -->
+            <div class="sidebar__panel">
+
+                <!-- WAD -->
+                <div class="panel-wad">
+                    <div class="panel__title">WAD</div>
+
+                    <div class="spacer"></div>
+
+                    <div class="panel__row">
+                        <button class="wad-button__load-miniwad" aria-label="Load Miniwad demo" title="Load Miniwad demo">Load Miniwad demo</button>
+                    </div>
+
+                    <div class="spacer"></div>
+
+                    <div class="panel__row">
+                        <button class="wad-button__load-wad" aria-label="Add WAD file" title="Add WAD file">Add WAD</button>
+                        <button class="wad-button__load-pk3" aria-label="Add PK3 file" title="Add PK3 file">Add PK3</button>
+                        <button class="wad-button__clear-all" aria-label="Clear loaded files" title="Clear loaded files">Clear all</button>
+                    </div>
+
+                    <div class="spacer"></div>
+
+                    <table class="property-table">
+                        <tr><td>WAD stack</td><td></td></tr>
+                        <tr><td>Lumps</td><td></td></tr>
+                        <tr><td>Maps</td><td></td></tr>
+                        <tr><td>Textures</td><td></td></tr>
+                        <tr><td>Flats</td><td></td></tr>
+                        <tr><td>Things</td><td></td></tr>
+                    </table>
+
+                    <div class="spacer"></div>
+                    <div class="line"></div>
+                    <div class="spacer"></div>
+
+                    <div class="panel__title">Load map</div>
+
+                    <div class="spacer"></div>
+
+                    <select class="panel-wad__maps"><option value="No maps">No maps</option></select>
+
+                    <div class="spacer"></div>
+
+                    <div class="panel__row">
+                        <button class="map-button__load-map" aria-label="Load map from WAD" title="Load map from WAD">Load map</button>
+                        <button class="map-button__clear-map" aria-label="Clear current map" title="Clear current map">Clear map</button>
+                        <button class="map-button__load-udmf" aria-label="Load map from external UDMF file" title="Load map from external UDMF file">Load UDMF file</button>
+                    </div>
+
+                    <div class="spacer"></div>
+
+                    <div class="panel__title">Export</div>
+
+                    <div class="spacer"></div>
+
+                    <div class="panel__row">
+                        <button class="map-button__save-map" aria-label="Export current map" title="Export current map">Export map as WAD</button>
+                    </div>
+
+                    <div class="spacer"></div>
+
+                    <div class="panel__title">Export notes</div>
+
+                    <div class="spacer"></div>
+
+                    <div class="muted">
+                        <div><b>Target port</b></div>
+                        <div>Available properties and export format depend on the target port. Configure the target in <b>Map Metadata</b>. The export format is Binary WAD or UDMF/TEXTMAP.</div>
+                        <div><br></div>
+
+                        <div><b>Limitations:</b></div>
+                        <div><b>BEHAVIOR</b>, <b>SCRIPTS</b>, <b>DIALOGUE</b> lumps, and <b>Custom properties</b> are <b>NOT</b> preserved. Floating-point coordinates are quantized to integers.</div>
+                        <div><br></div>
+
+                        <div><b>Supported ports:</b></div>
+                        <div>DOOM / BOOM / HEXEN / ZDOOM / GZDOOM</div>
+                        <div><br></div>
+
+                        <div><b>Legacy ports:</b></div>
+                        <div>Exported maps need to be built in a map editor with a node builder (e.g. Ultimate Doom Builder) before they can be played in legacy ports.</div>
+                        <div><br></div>
+
+                        <div><b>Void sectors:</b></div>
+                        <div>The editor automatically creates all enclosed sectors. To exclude a sector, enable <b>Is Void</b> in the inspector.</div>
+                        <div><br></div>
+                    </div>
+                </div>
+
+                <!-- Users -->
+                <div class="panel-users panel--hidden">
+                    <div class="panel__title">Users</div>
+
+                    <div class="spacer"></div>
+
+                    <div class="panel-users__users"></div>
+
+                    <div class="spacer"></div>
+
+                    <div class="muted">
+                        <div>&bull; PM: Send a private message.</div>
+                        <div>&bull; Limit: Restrict editing to the selected area.</div>
+                        <div>&bull; Kick: Disconnect the user.</div>
+                        <div>&bull; Ban: Block the user from the server.</div>
+                    </div>
+                </div>
+
+                <!-- Inspector -->
+                <div class="panel-inspector panel--hidden">
+
+                    <!-- Map Metadata -->
+                    <div class="inspector__section inspector__section--expanded inspector__map">
+                        <div class="inspector__toggle">
+                            <span></span>
+                            <span>Map Metadata</span>
+                        </div>
+
+                        <div class="inspector__body">
+                            <table class="property-table">
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Line Properties -->
+                    <div class="inspector__section inspector__section--expanded inspector__line">
+                        <div class="inspector__toggle">
+                            <span></span>
+                            <span>Line Properties</span>
+                        </div>
+
+                        <div class="inspector__body">
+                            <table class="property-table">
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Side Properties -->
+                    <div class="inspector__section inspector__section--expanded inspector__side-front">
+                        <div class="inspector__toggle">
+                            <span></span>
+                            <span>Front Properties</span>
+                        </div>
+
+                        <div class="inspector__body">
+                            <table class="property-table">
+                            </table>
+                        </div>
+                    </div>
+                    <div class="inspector__section inspector__section--expanded inspector__side-back">
+                        <div class="inspector__toggle">
+                            <span></span>
+                            <span>Back Properties</span>
+                        </div>
+
+                        <div class="inspector__body">
+                            <table class="property-table">
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Sector Properties -->
+                    <div class="inspector__section inspector__section--expanded inspector__sector">
+                        <div class="inspector__toggle">
+                            <span></span>
+                            <span>Sector Properties</span>
+                        </div>
+
+                        <div class="inspector__body">
+                            <table class="property-table">
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Thing Properties -->
+                    <div class="inspector__section inspector__section--expanded inspector__thing">
+                        <div class="inspector__toggle">
+                            <span></span>
+                            <span>Thing Properties</span>
+                        </div>
+
+                        <div class="inspector__body">
+                            <table class="property-table">
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Textures -->
+                <div class="panel-textures panel--hidden">
+                    <div class="panel__header">
+                        <div class="panel__title">Textures</div>
+
+                        <input type="text" placeholder="filter" autocomplete="off">
+                    </div>
+
+                    <div class="spacer"></div>
+
+                    <div class="gallery"></div>
+                </div>
+
+                <!-- Flats -->
+                <div class="panel-flats panel--hidden">
+                    <div class="panel__header">
+                        <div class="panel__title">Flats</div>
+
+                        <input type="text" placeholder="filter" autocomplete="off">
+                    </div>
+
+                    <div class="spacer"></div>
+
+                    <div class="gallery"></div>
+                </div>
+
+                <!-- Things -->
+                <div class="panel-things panel--hidden">
+                    <div class="panel__header">
+                        <div class="panel__title">Things</div>
+
+                        <input type="text" placeholder="filter" autocomplete="off">
+                    </div>
+
+                    <div class="spacer"></div>
+
+                    <div class="gallery"></div>
+                </div>
+
+                <!-- Sounds -->
+                <div class="panel-sounds panel--hidden">
+                    <div class="panel__title">Sounds</div>
+
+                    <div class="spacer"></div>
+
+                    <select></select>
+
+                    <div class="spacer"></div>
+
+                    <div class="panel__row">
+                        <button aria-label="Copy sound name to clipboard" title="Copy sound name to clipboard">Copy to clipboard</button>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Editor -->
+        <main class="editor">
+
+            <div class="editor__fullscreen">
+                <canvas class="editor_2d"></canvas>
+            </div>
+
+            <div class="editor__inset">
+                <canvas class="editor_3d"></canvas>
+            </div>
+
+            <div class="editor__connection"></div>
+
+            <div class="editor__buttons">
+                <button class="editor-button__select-mode mode-button selected" aria-label="Select and move mode (Space)" title="Select and move mode (Space)"></button>
+                <button class="editor-button__line-mode mode-button" data-mode="line" aria-label="Line drawing mode (V)" title="Line drawing mode (V)"></button>
+                <button class="editor-button__rectangle-mode mode-button" data-mode="rectangle" aria-label="Rectangle drawing mode (B)" title="Rectangle drawing mode (B)"></button>
+                <button class="editor-button__ellipse-mode mode-button" data-mode="ellipse" aria-label="Ellipse drawing mode (C)" title="Ellipse drawing mode (C)"></button>
+                <button class="editor-button__extrude-mode mode-button" data-mode="extrude" aria-label="Line extrude mode (E)" title="Line extrude mode (E)"></button>
+                <button class="editor-button__thing-mode mode-button" data-mode="thing" aria-label="Thing drawing mode (Q)" title="Thing drawing mode (Q)"></button>
+                <button class="editor-button__inset selected" aria-label="Show / hide inset viewport" title="Show / hide inset viewport"></button>
+                <button class="editor-button__inset-swap" aria-label="Swap inset and main viewport (TAB)" title="Swap inset and main viewport (TAB)"></button>
+                <button class="editor-button__textures" aria-label="Show / hide textures in 2D" title="Show / hide textures in 2D"></button>
+                <button class="editor-button__shortcuts" aria-label="Show / hide shortcuts" title="Show / hide shortcuts"></button>
+                <button class="editor-button__undo" aria-label="Undo last local action (Ctrl + Z)" title="Undo last local action (Ctrl + Z)"></button>
+                <button class="editor-button__redo" aria-label="Redo last undone local action (Ctrl + Y)" title="Redo last undone local action (Ctrl + Y)"></button>
+                <button class="editor-button__run" aria-label="Run map using Doom launcher" title="Run map using Doom launcher"></button>
+                <button class="editor-button__vr" aria-label="Enter VR mode" title="Enter VR mode"></button>
+                <button class="editor-button__xr" aria-label="Enter XR mode" title="Enter XR mode"></button>
+            </div>
+
+            <div class="editor__chat">
+                <div class="chat__log">
+                    <div class="chat__entry">Welcome to the editor.</div>
+                </div>
+
+                <input class="chat__input" type="text" placeholder="CHAT" autocomplete="off" maxlength="256">
+
+                <div class="chat__target"></div>
+            </div>
+
+            <div class="editor__shortcuts">
+                <!--<div>
+                    <img src="./images/vr_controls.png" class="vr-controls">
+                </div>-->
+
+                <div>
+                    <div>Navigation</div>
+                    <ul>
+                        <li>W / A / S / D &#8594; Move FPS-style</li>
+                        <li>Shift + A / D &#8594; Strafe</li>
+                        <li>Right Mouse (2D) &#8594; Pan view</li>
+                        <li>Right Mouse (3D) &#8594; Flight</li>
+                        <li>Mouse Wheel (2D) &#8594; Zoom in / out</li>
+                        <li>Tab &#8594; Swap 2D / 3D viewport</li>
+                    </ul>
+
+                    <div>Selection</div>
+                    <ul>
+                        <li>Left Mouse &#8594; Select</li>
+                        <li>Shift + Left Mouse &#8594; Toggle select</li>
+                        <li>Ctrl + Left Mouse &#8594; Brush select</li>
+                        <li>Left Drag (on selection) &#8594; Move selection</li>
+                        <li>Left Drag (right) &#8594; Box select (contains)</li>
+                        <li>Left Drag (left) &#8594; Box select (intersects)</li>
+                        <li>Middle Mouse &#8594; Brush deselect</li>
+                        <li>1 &#8594; Grow selection (connected)</li>
+                        <li>2 &#8594; Shrink selection (connected)</li>
+                        <li>3 (2D / 3D) &#8594; Select connected (hovered)</li>
+                    </ul>
+
+                    <div>Snapping</div>
+                    <ul>
+                        <li>4 / 5 &#8594; Snap grid scale down / up</li>
+                        <li>Shift (hold) &#8594; Enable polar snap</li>
+                        <li>Ctrl (hold) &#8594; Disable grid snap</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <div>Mode switching</div>
+                    <ul>
+                        <li>Space / Esc &#8594; Select mode / Deselect</li>
+                        <li>V &#8594; Line mode</li>
+                        <li>B &#8594; Rectangle mode</li>
+                        <li>C &#8594; Ellipse mode</li>
+                        <li>E &#8594; Extrude mode</li>
+                        <li>Q &#8594; Thing mode</li>
+                    </ul>
+
+                    <div>Transform modes</div>
+                    <ul>
+                        <li>Left Mouse &#8594; Confirm transform</li>
+                        <li>G &#8594; Confirm &amp; continue moving</li>
+                        <li>R &#8594; Confirm &amp; continue rotating</li>
+                        <li>H &#8594; Confirm &amp; continue scaling</li>
+                        <li>Right Mouse &#8594; Move transform pivot</li>
+                    </ul>
+
+                    <div>Drawing modes</div>
+                    <ul>
+                        <li>Left Mouse &#8594; Confirm drawing</li>
+                        <li>Middle Mouse &#8594; Add &amp; continue</li>
+                    </ul>
+
+                    <div>Geometry editing</div>
+                    <ul>
+                        <li>Ctrl + F &#8594; Flip hovered side</li>
+                        <li>F &#8594; Equalize selection height</li>
+                        <li>Scroll (3D) &#8594; Change sector height</li>
+                        <li>Shift + Scroll (3D) &#8594; Finetune height</li>
+                        <li>Note: Scrolls selection or hovered</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <div>Texture editing</div>
+                    <ul>
+                        <li>Middle Drag &#8594; Scroll texture</li>
+                        <li>t &#8594; Auto-align horizontally</li>
+                        <li>y &#8594; Auto-align vertically</li>
+                        <li>Auto-align is relative to first selected</li>
+                        <li>Shift + C &#8594; Copy texture</li>
+                        <li>Shift + V &#8594; Paste texture</li>
+                        <li>Texture targets are selected in 3D</li>
+                    </ul>
+
+                    <div>Deletion</div>
+                    <ul>
+                        <li>X &#8594; Dissolve or delete <b>hovered</b></li>
+                        <li>Delete &#8594; Delete <b>selected</b></li>
+                        <li>Shift + Delete &#8594; Dissolve <b>selected</b></li>
+                    </ul>
+
+                    <div>Clipboard</div>
+                    <ul>
+                        <li>Copy and paste work across tabs</li>
+                        <li>Ctrl + C &#8594; Copy</li>
+                        <li>Ctrl + X &#8594; Cut</li>
+                        <li>Ctrl + V &#8594; Paste</li>
+                    </ul>
+
+                    <div>History</div>
+                    <ul>
+                        <li>Ctrl + Z &#8594; Undo</li>
+                        <li>Ctrl + Y &#8594; Redo</li>
+                    </ul>
+
+                    <div>Tabs</div>
+                    <ul>
+                        <li>F1 - F7 &#8594; Switch tab</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="editor__status"></div>
+
+        </main>
+
+    </div>
+</body>
+</html>
