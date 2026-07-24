@@ -112,7 +112,7 @@ export default class Client extends EventTarget {
             return;
         }
 
-        const serverUrl = new URL(params.get('server') ?? window.location.origin);
+        const serverUrl = params.get('server') ?? window.location.origin;
 
         this.#socket = io(serverUrl, { transports: ['websocket'], reconnection: true });
 
