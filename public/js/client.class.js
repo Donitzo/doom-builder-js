@@ -89,7 +89,7 @@ export default class Client extends EventTarget {
 
         this.#offlineMode = !params.has('online');
 
-        const username = params.get('username') ?? 'noname';
+        const username = params.get('username') ?? prompt('What is your username?', 'Noname');
         let roomName = params.get('room') ?? 'test room';
         let roomToken = params.get('token') ?? null;
 

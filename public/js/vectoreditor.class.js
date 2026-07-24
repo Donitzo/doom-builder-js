@@ -158,8 +158,12 @@ export default class VectorEditor {
     /** @type {boolean} Whether the 2D editor currently has focus. */
     #focused = true;
 
-    /** @type {?HTMLCanvasElement} Main editor canvas. */
+    /** @type {?HTMLCanvasElement} */
     #canvas = null;
+    /** @type {?HTMLCanvasElement} Main editor canvas. */
+    get canvas() {
+        return this.#canvas;
+    }
     /** @type {?CanvasRenderingContext2D} Main canvas rendering context. */
     #ctx = null;
     /** @type {{x: number, y: number}} Last canvas size. */
@@ -216,8 +220,12 @@ export default class VectorEditor {
     /** @type {Map<number, Array<Object>>} Selections awaiting transactions. */
     #pendingSelections = new Map();
 
-    /** @type {{x: number, y: number}} Current cursor position. */
-    #cursorPosition = { x: 0, y: 0 };
+    /** @type {{x: number, y: number}} */
+    #worldCursor = { x: 0, y: 0 };
+    /** @type {{x: number, y: number}} Last world cursor position. */
+    get worldCursor() {
+        return this.#worldCursor;
+    }
     /** @type {{x: number, y: number}} Current snapped map position. */
     #snappedCursorPosition = { x: 0, y: 0 };
     /** @type {{x: number, y: number}} Cursor position from the previous update. */
@@ -585,7 +593,7 @@ export default class VectorEditor {
         const screenCursor = VectorEditor.#tmpV20;
         Input.getCursorPosition(screenCursor);
         Input.clientToCanvas(canvas, screenCursor);
-        const worldCursor = VectorEditor.#tmpV24;
+        const worldCursor = this.#worldCursor;
         worldCursor.x = screenCursor.x;
         worldCursor.y = screenCursor.y;
         this.#screenToWorld(worldCursor);
@@ -3596,18 +3604,6 @@ export default class VectorEditor {
     setCameraPosition(x, y) {
         this.#camera.position.x = x;
         this.#camera.position.y = y;
-    }
-
-    /**
-     * Copies the current cursor position into a target object.
-     *
-     * @param {{x: number, y: number}} target - Target object.
-     * @returns {{x: number, y: number}} The target object.
-     */
-    getCursorPosition(target) {
-        target.x = this.#cursorPosition.x;
-        target.y = this.#cursorPosition.y;
-        return target;
     }
 
     /**

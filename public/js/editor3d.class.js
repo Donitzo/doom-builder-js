@@ -479,10 +479,12 @@ export default class Editor3D {
      * @param {boolean} [skipCursor=false] - Whether to omit the vector-editor cursor position.
      */
     sendPlayerInfo(skipCursor = false) {
-        const cursor = this.#vectorEditor.getCursorPosition(Editor3D.#tmpV20);
-        const playerX = this.#cameraRig.position.x / Map3D.METERS_PER_UNIT;
-        const playerY = -this.#cameraRig.position.z / Map3D.METERS_PER_UNIT;
-        const playerZ = this.#cameraRig.position.y / Map3D.METERS_PER_UNIT;
+        const metersPerUnit = Map3D.METERS_PER_UNIT;
+
+        const cursor = this.#vectorEditor.worldCursor;
+        const playerX = this.#cameraRig.position.x / metersPerUnit;
+        const playerY = -this.#cameraRig.position.z / metersPerUnit;
+        const playerZ = this.#cameraRig.position.y / metersPerUnit;
         const playerAngle = this.#cameraRig.rotation.y / (Math.PI * 2) * 360 + 90;
 
         this.#client.sendPlayerInfo(
